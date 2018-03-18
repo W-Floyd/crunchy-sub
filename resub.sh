@@ -1,5 +1,14 @@
 #!/bin/bash
 
+while read -r __program; do
+    if ! which "${__program}" &> /dev/null; then
+        echo "'${__program}' not installed."
+        exit
+    fi
+done <<< 'awk-csv-parser'
+
+source ./crunchyroll
+
 # modified from https://github.com/xvoland/Extract
 extract () {
  if [ -z "$1" ]; then
@@ -55,7 +64,7 @@ list_subs () {
 # download_subs 'sub name'
 download_subs () {
     local __sub_title="${1}"
-    local __sub_dir="${__download_dir}/${__sub_title}"
+    local __sub_dir="${__download_dir_subs}/${__sub_title}"
     __mkdir "${__sub_dir}"
     list_subs "${__sub_title}" | while read -r __url; do
         local __sub_hash="$(sha1sum <<< "${__url}" | sed 's/ .*//')"
@@ -79,7 +88,7 @@ download_subs () {
 list_downloaded_subs () {
     local __sub_title="${1}"
     local __sub_hash="${2}"
-    local __sub_dir="${__download_dir}/${__sub_title}"
+    local __sub_dir="${__download_dir_subs}/${__sub_title}"
     local __url_dir="${__sub_dir}/${__sub_hash}"
     find "${__url_dir}" | grep -E '\.(aqt|cvd|dks|jss|mpl|txt|pjs|rt|smi|srt|ssa|ass|sub|idx|svcd|usf|psb|ttxt)$'   
 }
@@ -87,8 +96,18 @@ list_downloaded_subs () {
 # list_hashes 'sub name'
 list_hashes () {
     local __sub_title="${1}"
-    local __sub_dir="${__download_dir}/${__sub_title}"
+    local __sub_dir="${__download_dir_subs}/${__sub_title}"
     find "${__sub_dir}/" -maxdepth 1 -type d | sed "s#${__sub_dir}/##" | sort | uniq | sed '/^$/d'
+}
+
+# download_videos 'crunchy-name'
+download_videos () {
+    local __video_title="${1}"
+    local __video_dir="${__download_dir_videos}/${__video_title}"
+    __mkdir "${__video_dir}"
+    pushd "${__video_dir}"
+    youtube-dl 'http://www.crunchyroll.com/'"${__video_title}" -u "${crunchy_email}" -p "${crunchy_password}" --all-subs --embed-subs --download-archive downloaded.txt --no-post-overwrites
+    popd
 }
 
 # list_all_downloaded_subs 'sub name'
@@ -100,6 +119,8 @@ list_all_downloaded_subs () {
 }
 
 __download_dir='downloads'
+__download_dir_subs="${__download_dir}/sub"
+__download_dir_videos="${__download_dir}/video"
 
 __mkdir "${__download_dir}"
 
@@ -112,8 +133,9 @@ awk-csv-parser -o '\n' "${__show_file}" | sed '/^$/d' | while mapfile -t -n 2 ar
     crunchy_title="${ary[0]}"
     sub_title="${ary[1]}"
     echo "Crunchy Title: ${crunchy_title}"
-    echo "Crunchy Title: ${sub_title}"
+    echo "Sub Title: ${sub_title}"
     download_subs "${sub_title}"
+    download_videos "${crunchy_title}"
     list_all_downloaded_subs "${sub_title}"
 done
 
