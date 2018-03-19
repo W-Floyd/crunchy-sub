@@ -120,7 +120,11 @@ download_episodes () {
     __mkdir "${__video_dir}"
     __pushd "${__video_dir}"
     if ! [ -e '.downloaded' ]; then
-        youtube-dl 'http://www.crunchyroll.com/'"${__video_title}" -u "${crunchy_email}" -p "${crunchy_password}" --all-subs --embed-subs --download-archive .downloaded.txt --no-post-overwrites
+        if [ -z "${crunchy_email}" ] || [ -z "${crunchy_password}" ]; then
+            youtube-dl 'http://www.crunchyroll.com/'"${__video_title}" --all-subs --embed-subs --download-archive .downloaded.txt --no-post-overwrites
+        else
+            youtube-dl 'http://www.crunchyroll.com/'"${__video_title}" -u "${crunchy_email}" -p "${crunchy_password}" --all-subs --embed-subs --download-archive .downloaded.txt --no-post-overwrites
+        fi
         find . | grep -E '\.mp4' | while read -r __file; do
             ffmpeg -nostdin -i "${__file}" \
             -vcodec copy \
