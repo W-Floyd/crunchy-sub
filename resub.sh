@@ -178,10 +178,13 @@ assign_subs () {
 
         local __matching_sub_list="$(
 
+        {
         # All possible matching patterns to find sub files.
         grep " 0*${n} " <<< "${__sub_list}"
         grep " 0*${n}\.0 " <<< "${__sub_list}"
         grep -E "(E|e)(P|p)0*${n}_" <<< "${__sub_list}"
+        } | grep -vF ' NCED 
+ NCOP '
 
         )"
 
@@ -203,7 +206,8 @@ assign_subs () {
                 --text="${__video_file}" \
                 --column="Select"  \
                 --column="File"  \
-                "${table[@]}" 2>/dev/null | sed 's/|/\n/'
+                --separator='\n' \
+                "${table[@]}" 2>/dev/null
             else
                 echo "${__matching_sub_list}"
             fi
