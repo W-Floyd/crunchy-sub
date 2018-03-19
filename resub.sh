@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [ -e ./crunchyroll ]; then
+    source ./crunchyroll
+fi
+
 until [ "${#}" = '0' ]; do
     export "${1}"
     shift
@@ -11,8 +15,6 @@ while read -r __program; do
         exit
     fi
 done <<< 'awk-csv-parser'
-
-source ./crunchyroll
 
 __pushd () {
     pushd "${1}" &> /dev/null
