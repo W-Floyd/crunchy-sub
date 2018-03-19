@@ -1,9 +1,5 @@
 #!/bin/bash
 
-if [ -e ./crunchyroll ]; then
-    source ./crunchyroll
-fi
-
 until [ "${#}" = '0' ]; do
     export "${1}"
     shift
@@ -132,16 +128,16 @@ download_episodes () {
     if ! [ -e '.downloaded' ]; then
         if [ -z "${crunchy_email}" ] || [ -z "${crunchy_password}" ]; then
             youtube-dl \
-            'http://www.crunchyroll.com/'"${__video_title}" \
+            "${site_prefix[${__site}]}${__video_title}" \
             --all-subs \
             --embed-subs \
             --download-archive .downloaded.txt \
             --no-post-overwrites || __error "Episode download failed."
         else
             youtube-dl \
-            'http://www.crunchyroll.com/'"${__video_title}" \
-            -u "${crunchy_email}" -p \
-            "${crunchy_password}" \
+            "${site_prefix[${__site}]}${__video_title}" \
+            -u "${auth_email}" -p \
+            "${auth_password}" \
             --all-subs \
             --embed-subs \
             --download-archive .downloaded.txt \
@@ -200,6 +196,9 @@ assign_subs () {
 
         {
         # All possible matching patterns to find sub files.
+
+        # Seasons numbers are not supported, *you* need to pick and choose.
+        grep -E '(S|s)[0-9]*(E|e)0*${n}' <<< "${__sub_list}"
         grep -E "( |_)0*${n}( |_)" <<< "${__sub_list}"
         grep -E "( |_)0*${n}\.0( |_)" <<< "${__sub_list}"
         grep -E "(E|e)(P|p)0*${n}( |_)" <<< "${__sub_list}"
@@ -261,27 +260,40 @@ assign_subs () {
 
 }
 
-__download_dir='downloads'
-__download_dir_subs="${__download_dir}/sub"
-__download_dir_videos="${__download_dir}/video"
+declare -A site_prefix
 
-__mkdir "${__download_dir}"
+site_prefix['crunchyroll']='http://www.crunchyroll.com/'
 
-__show_file='shows.csv'
 __site_file='subs.html'
 
 echo -n 'Downloading Sub Page...'
 wget 'http://kitsunekko.net/dirlist.php?dir=subtitles%2F' -qO - > "${__site_file}"
 echo ' Done.'
 
-awk-csv-parser -o '\n' "${__show_file}" | sed '/^$/d' | while mapfile -t -n 2 ary && ((${#ary[@]})); do
-    crunchy_url_name="${ary[0]}"
-    sub_title="${ary[1]}"
-    echo "Crunchy Title: ${crunchy_url_name}"
-    echo "Sub Title: ${sub_title}"
-    download_subs "${sub_title}"
-    download_episodes "${crunchy_url_name}"
-    assign_subs "${crunchy_url_name}" "${sub_title}"
-done
+while read -r __site; do
+
+    if [ -e "./${__site}" ]; then
+        source "./${__site}"
+    fi
+
+    __download_dir="downloads_${__site}"
+    __download_dir_subs="${__download_dir}/sub"
+    __download_dir_videos="${__download_dir}/video"
+
+    __mkdir "${__download_dir}"
+
+    __show_file="shows_${__site}.csv"
+
+    awk-csv-parser -o '\n' "${__show_file}" | sed '/^$/d' | while mapfile -t -n 2 ary && ((${#ary[@]})); do
+        crunchy_url_name="${ary[0]}"
+        sub_title="${ary[1]}"
+        echo "URL Title: ${crunchy_url_name}"
+        echo "Sub Title: ${sub_title}"
+        download_subs "${sub_title}"
+        download_episodes "${crunchy_url_name}"
+        assign_subs "${crunchy_url_name}" "${sub_title}"
+    done
+
+done <<< 'crunchyroll'
 
 exit
