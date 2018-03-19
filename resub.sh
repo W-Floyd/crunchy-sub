@@ -16,6 +16,8 @@ while read -r __program; do
     fi
 done <<< 'awk-csv-parser'
 
+__sub_types='aqt|cvd|dks|jss|mpl|txt|pjs|rt|smi|srt|ssa|ass|sub|idx|svcd|usf|psb|ttxt'
+
 __pushd () {
     pushd "${1}" &> /dev/null
 }
@@ -32,6 +34,7 @@ extract () {
     echo "       extract <path/file_name_1.ext> [path/file_name_2.ext] [path/file_name_3.ext]"
  else
     until [ "${#}" = '0' ]; do
+        n="${1}"
       if [ -e "${n}" ] ; then
           case "${n}" in
             *.tar.bz2|*.tar.gz|*.tar.xz|*.tbz2|*.tgz|*.txz|*.tar) 
@@ -61,6 +64,11 @@ extract () {
     shift
     done
 fi
+}
+
+__error () {
+    echo "Error: ${1}"
+    exit
 }
 
 __mkdir () {
@@ -105,7 +113,7 @@ list_downloaded_subs () {
     local __sub_hash="${2}"
     local __sub_dir="${__download_dir_subs}/${__sub_title}"
     local __url_dir="${__sub_dir}/${__sub_hash}"
-    find "${__url_dir}" | grep -E '\.(aqt|cvd|dks|jss|mpl|txt|pjs|rt|smi|srt|ssa|ass|sub|idx|svcd|usf|psb|ttxt)$'   
+    find "${__url_dir}" | grep -E "\.(${__sub_types})$"
 }
 
 # list_hashes 'Sub Name'
@@ -123,9 +131,21 @@ download_episodes () {
     __pushd "${__video_dir}"
     if ! [ -e '.downloaded' ]; then
         if [ -z "${crunchy_email}" ] || [ -z "${crunchy_password}" ]; then
-            youtube-dl 'http://www.crunchyroll.com/'"${__video_title}" --all-subs --embed-subs --download-archive .downloaded.txt --no-post-overwrites
+            youtube-dl \
+            'http://www.crunchyroll.com/'"${__video_title}" \
+            --all-subs \
+            --embed-subs \
+            --download-archive .downloaded.txt \
+            --no-post-overwrites || __error "Episode download failed."
         else
-            youtube-dl 'http://www.crunchyroll.com/'"${__video_title}" -u "${crunchy_email}" -p "${crunchy_password}" --all-subs --embed-subs --download-archive .downloaded.txt --no-post-overwrites
+            youtube-dl \
+            'http://www.crunchyroll.com/'"${__video_title}" \
+            -u "${crunchy_email}" -p \
+            "${crunchy_password}" \
+            --all-subs \
+            --embed-subs \
+            --download-archive .downloaded.txt \
+            --no-post-overwrites || __error "Episode download failed."
         fi
         find . | grep -E '\.mp4' | while read -r __file; do
             ffmpeg -nostdin -i "${__file}" \
@@ -180,27 +200,33 @@ assign_subs () {
 
         {
         # All possible matching patterns to find sub files.
-        grep " 0*${n} " <<< "${__sub_list}"
-        grep " 0*${n}\.0 " <<< "${__sub_list}"
-        grep -E "(E|e)(P|p)0*${n}_" <<< "${__sub_list}"
+        grep -E "( |_)0*${n}( |_)" <<< "${__sub_list}"
+        grep -E "( |_)0*${n}\.0( |_)" <<< "${__sub_list}"
+        grep -E "(E|e)(P|p)0*${n}( |_)" <<< "${__sub_list}"
+        grep -E "( |_)0*${n}\.(${__sub_types})$" <<< "${__sub_list}"
         } | grep -vF ' NCED 
- NCOP '
+ NCOP ' | sort | sed '/^$/d'
 
         )"
 
+        declare -A __hash_table
+
+        __hash_table=()
+
+        while read -r __file; do
+            local __hash="$(sha1sum < "${__file}" | sed 's/ .*//')"
+            __hash_table["${__hash}"]="${__file}"
+        done <<< "${__matching_sub_list}"
+
         table=()
 
-        while read -r __matching_sub; do
+        for __matching_sub in "${__hash_table[@]}"; do
 
             table+=(TRUE "${__matching_sub}")
 
-        done <<< "${__matching_sub_list}"
+        done
 
-        __subs=()
-
-        while read -r __sub_file; do
-            __subs+=('--language' '0:eng' "${__sub_file}" )
-        done < <(
+        local __culled_sub_list="$(
             if ! ( [ "${zenity}" = 'false' ] || [ "${zenity}" = 'no' ] || [ "${zenity}" = '0' ] ); then
                 zenity --list --checklist \
                 --text="${__video_file}" \
@@ -211,7 +237,19 @@ assign_subs () {
             else
                 echo "${__matching_sub_list}"
             fi
-        )
+            )"
+
+        __subs=()
+
+        while read -r __sub_file; do
+            __subs+=('--language' '0:eng' "${__sub_file}" )
+        done <<< "${__culled_sub_list}"
+
+        if [ -z "${__culled_sub_list}" ]; then
+            echo 'No subs to apply, skipping...'
+            echo "${__video_file}" >> "${__processed_file}"
+            continue
+        fi
 
         echo "Adding subs to '$(basename "${__video_file}")'"
         mkvmerge -o /tmp/output.mkv "${__video_file}" "${__subs[@]}" &> /dev/null
@@ -232,8 +270,9 @@ __mkdir "${__download_dir}"
 __show_file='shows.csv'
 __site_file='subs.html'
 
-echo 'Downloading Sub Page'
+echo -n 'Downloading Sub Page...'
 wget 'http://kitsunekko.net/dirlist.php?dir=subtitles%2F' -qO - > "${__site_file}"
+echo ' Done.'
 
 awk-csv-parser -o '\n' "${__show_file}" | sed '/^$/d' | while mapfile -t -n 2 ary && ((${#ary[@]})); do
     crunchy_url_name="${ary[0]}"
