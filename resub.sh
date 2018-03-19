@@ -24,14 +24,13 @@ __popd () {
 
 # modified from https://github.com/xvoland/Extract
 extract () {
- if [ -z "$1" ]; then
+ if [ -z "${1}" ]; then
     # display usage if no parameters given
     echo "Usage: extract <path/file_name>.<zip|rar|bz2|gz|tar|tbz2|tgz|Z|7z|xz|ex|tar.bz2|tar.gz|tar.xz>"
     echo "       extract <path/file_name_1.ext> [path/file_name_2.ext] [path/file_name_3.ext]"
  else
-    for n in "${@}"
-    do
-      if [ -f "${n}" ] ; then
+    until [ "${#}" = '0' ]; do
+      if [ -e "${n}" ] ; then
           case "${n}" in
             *.tar.bz2|*.tar.gz|*.tar.xz|*.tbz2|*.tgz|*.txz|*.tar) 
                          tar xvf "${n}"       ;;
@@ -57,6 +56,7 @@ extract () {
           echo "'${n}' - file does not exist"
           return 1
       fi
+    shift
     done
 fi
 }
@@ -228,7 +228,7 @@ __site_file='subs.html'
 echo 'Downloading Sub Page'
 wget 'http://kitsunekko.net/dirlist.php?dir=subtitles%2F' -qO - > "${__site_file}"
 
-awk-csv-parser -o '\n' "${__show_file}" | sed '/^$/d' | while mapfile -t -n 3 ary && ((${#ary[@]})); do
+awk-csv-parser -o '\n' "${__show_file}" | sed '/^$/d' | while mapfile -t -n 2 ary && ((${#ary[@]})); do
     crunchy_url_name="${ary[0]}"
     sub_title="${ary[1]}"
     echo "Crunchy Title: ${crunchy_url_name}"
