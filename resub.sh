@@ -180,6 +180,7 @@ assign_subs () {
 
         # All possible matching patterns to find sub files.
         grep " 0*${n} " <<< "${__sub_list}"
+        grep " 0*${n}\.0 " <<< "${__sub_list}"
         grep -E "(E|e)(P|p)0*${n}_" <<< "${__sub_list}"
 
         )"
