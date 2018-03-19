@@ -10,3 +10,8 @@ Thus, this bash script abomination was born - it downloads shows off of Crunchyr
 ## Requirements
 
 You'll need [awk-csv-parser](https://github.com/geoffroy-aubry/awk-csv-parser).
+
+## Not To Be Confused With
+
+[CrunchySubs](https://github.com/7ouma/CrunchySubs)
+The [CrunchySubs](https://anidb.net/perl-bin/animedb.pl?show=group&gid=8811) release group.
